@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const OUT = ".as_temp"
@@ -17,9 +19,11 @@ const CONFIG = ".hx-tools.json"
 
 type configData struct {
 	Username       string   `json:"username"`
+	Password       string   `json:"password"`
 	P_ID           string   `json:"p_id"`
 	Datastores     []string `json:"datastores"`
 	unsavedChanges bool
+	LastLogin      time.Time `json:"last_login"`
 }
 
 func main() {
@@ -39,9 +43,12 @@ func main() {
 	config := loadConfig()
 
 	// login to hexabase
-	err = login(&config)
-	if err != nil {
-		log.Fatal("error occurred while logging in:", err)
+	if time.Since(config.LastLogin) > time.Hour {
+		err = login(&config)
+		if err != nil {
+			log.Fatal("error occurred while logging in:", err)
+		}
+		config.LastLogin = time.Now()
 	}
 
 	// download all action scripts
@@ -159,8 +166,10 @@ func login(config *configData) error {
 		config.Username = getInput("username")
 		config.unsavedChanges = true
 	}
-	pass := getInput("password")
-	cmd := exec.Command("hx", "login", "--email="+config.Username, "--password="+pass)
+	if config.Password == "" {
+		config.Password = getInput("password")
+	}
+	cmd := exec.Command("hx", "login", "--email="+config.Username, "--password="+config.Password)
 	return cmd.Run()
 }
 
@@ -244,14 +253,27 @@ func saveConfig(config configData) {
 	}
 	defer gitignore.Close()
 
+	// check if gitignore is already set
+	scanner := bufio.NewScanner(gitignore)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, CONFIG) {
+			// already set; no changes needed
+			fmt.Printf("Created config file %s.\nNOTE: do not commit this config file to your git repo! It may contain sensitive login information.\n", CONFIG)
+			fmt.Println("Your gitignore file should already have an exclusion for this file.")
+			return
+		}
+	}
+
 	// add config file to gitignore
-	_, err = gitignore.WriteString("\n" + CONFIG + "\n")
+	_, err = gitignore.WriteString("\n\n# ActionScript checker utility\n" + CONFIG + "\n")
 	if err != nil {
 		log.Println("failed to write to gitignore:", err)
 		return
 	}
 
-	fmt.Printf("Created config file %s.\nNOTE: do not commit this config file to your git repo! Your gitignore file was updated to exclude this file.\n", CONFIG)
+	fmt.Printf("Created config file %s.\nNOTE: do not commit this config file to your git repo! It may contain sensitive login information.\n", CONFIG)
+	fmt.Println("Your gitignore file was updated to add an exclusion for this file.")
 }
 
 func loadConfig() configData {
@@ -272,7 +294,7 @@ func loadConfig() configData {
 	fmt.Println("Username:", config.Username)
 	fmt.Println("Project ID:", config.P_ID)
 	fmt.Println("Datastores:", strings.Join(config.Datastores, ", "))
-	if strings.ToLower(getInput("\nUse above config? [Y/n]")) != "y" {
+	if strings.ToLower(getInput("\n\nUse above config? [y/n]")) != "y" {
 		fmt.Println("ignoring existing config.")
 		return configData{}
 	}
