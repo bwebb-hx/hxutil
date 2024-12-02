@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -11,10 +12,17 @@ const (
 	// Dear hackers: these credentials are only for testing, so they don't protect anything important.
 	testAccUser = "b.webb+test@hexabase.com"
 	testAccPass = "test123"
+	testP_ID    = "674716ff253630d46156a153"
+	testD_ID    = "674724ac4ba983711e015530"
 )
 
 const (
+	// signal to just check that a key exists, and not worry about the specific value
 	EXISTS_CHECK = "<<EXISTS>>"
+
+	// methods
+	GET  = "GET"
+	POST = "POST"
 )
 
 func payloadToJson(data interface{}) []byte {
@@ -26,13 +34,24 @@ func payloadToJson(data interface{}) []byte {
 }
 
 // testApi tests the given API with the given payload.
-func testApi(uri string, payload interface{}, expOut map[string]interface{}, n int) {
+func testApi(uri string, method string, queryParams map[string]string, payload interface{}, expOut map[string]interface{}, n int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	var totalTime time.Duration
 	pass, fail := 0, 0
 
 	for i := 0; i < n; i++ {
 		start := time.Now()
-		resp, err := PostApi(uri, payloadToJson(payload))
+		var resp []byte
+		var err error
+		if method == GET {
+			resp, err = GetApi(uri, queryParams)
+		} else if method == POST {
+			resp, err = PostApi(uri, payloadToJson(payload))
+		} else {
+			log.Println("Error: unknown HTTP method", method)
+			return
+		}
 		if err != nil {
 			log.Println("failed to call API:", err)
 			return
@@ -86,12 +105,20 @@ func testApi(uri string, payload interface{}, expOut map[string]interface{}, n i
 
 // RunStatusCheck tests the connectivity, response time, etc of all APIs (well, those that are registered here so far).
 func RunStatusCheck() {
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	n := 3
 	// Login
-	testApi(LoginURI, LoginPayload{
+	go testApi(LoginURI, POST, nil, LoginPayload{
 		Email:    testAccUser,
 		Password: testAccPass,
 	}, map[string]interface{}{
 		"token": EXISTS_CHECK,
-	}, n)
+	}, n, &wg)
+	// GetActions
+	go testApi(fmt.Sprintf(GetActionsURI, testD_ID), GET, nil, nil, nil, n, &wg)
+
+	wg.Wait()
+	fmt.Println("done!")
 }
