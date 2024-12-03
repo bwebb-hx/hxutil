@@ -5,16 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
 
 const (
 	// Dear hackers: these credentials are only for testing, so they don't protect anything important.
-	testAccUser = "b.webb+test@hexabase.com"
-	testAccPass = "test123"
-	testP_ID    = "674716ff253630d46156a153"
-	testD_ID    = "674724ac4ba983711e015530"
+	testAccUser   = "b.webb+test@hexabase.com"
+	testAccPass   = "test123"
+	testP_ID      = "674716ff253630d46156a153"
+	testD_ID      = "674724ac4ba983711e015530"
+	testAction_ID = "674724acb7eeb7dd909dd15b"
+	testVarName   = "ENV_VARIABLE_1"
 )
 
 const (
@@ -85,7 +88,7 @@ func testApi(apiDef ApiEndpoint, formatURI []any, queryParams map[string]string,
 	} else {
 		status += " (Pass!)"
 	}
-	fmt.Printf("%s %s %d ms\n", apiDef.URI, status, averageExecTime.Milliseconds())
+	fmt.Printf("%s %s %d ms\n", apiDef.DisplayURI, status, averageExecTime.Milliseconds())
 }
 
 func login() string {
@@ -113,7 +116,7 @@ func login() string {
 // RunStatusCheck tests the connectivity, response time, etc of all APIs (well, those that are registered here so far).
 func RunStatusCheck() {
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(5)
 	n := 3
 
 	// First, officially login to get the token
@@ -158,6 +161,29 @@ func RunStatusCheck() {
 		}
 		if len(respJson) == 0 {
 			return errors.New("no action details found in response")
+		}
+		return nil
+	}, token, n, &wg)
+
+	// DownloadActionScript
+	go testApi(DownloadActionScriptAPI, []any{testAction_ID}, map[string]string{"script_type": "post"}, nil, func(data []byte) error {
+		actionScript := string(data)
+		if !strings.Contains(actionScript, "main(data)") {
+			return errors.New("failed to load actionscript")
+		}
+		return nil
+	}, token, n, &wg)
+
+	go testApi(GetApplicationScriptVariableAPI, []any{testP_ID, testVarName}, nil, nil, func(data []byte) error {
+		var jsonData map[string]interface{}
+		if err := json.Unmarshal(data, &jsonData); err != nil {
+			return err
+		}
+		if val, exists := jsonData["var_name"]; !exists || val != testVarName {
+			return errors.New("environment variable name incorrect or missing")
+		}
+		if val, exists := jsonData["value"]; !exists || val != "secret value" {
+			return errors.New("environment variable value incorrect or missing")
 		}
 		return nil
 	}, token, n, &wg)
