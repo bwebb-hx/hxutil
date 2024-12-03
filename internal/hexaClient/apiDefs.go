@@ -1,19 +1,35 @@
 package hexaclient
 
-// (POST)
-const LoginURI = "/api/v0/login"
+type ApiEndpoint struct {
+	URI            string
+	Method         string
+	RequireToken   bool
+	RequirePayload bool
+}
 
 type LoginPayload struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-// Action APIs
+var LoginAPI = ApiEndpoint{
+	URI:            "/api/v0/login",
+	Method:         "POST",
+	RequireToken:   false,
+	RequirePayload: true,
+}
 
-// (GET)
-//
-// Insert: database ID
-//
-// Docs:
+var GetWorkspacesAPI = ApiEndpoint{
+	URI:            "/api/v0/workspaces",
+	Method:         "GET",
+	RequireToken:   true,
+	RequirePayload: false,
+}
+
 // https://apidoc.hexabase.com/en/docs/v0/datastores/GetActions
-const GetActionsURI = "/api/v0/datastores/%s/actions"
+var GetActionsAPI = ApiEndpoint{
+	URI:            "/api/v0/datastores/%s/actions",
+	Method:         "GET",
+	RequireToken:   true,
+	RequirePayload: false,
+}

@@ -2,6 +2,7 @@ package hexaclient
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -34,22 +35,31 @@ func payloadToJson(data interface{}) []byte {
 }
 
 // testApi tests the given API with the given payload.
-func testApi(uri string, method string, queryParams map[string]string, payload interface{}, expOut map[string]interface{}, n int, wg *sync.WaitGroup) {
+func testApi(apiDef ApiEndpoint, formatURI []any, queryParams map[string]string, payload interface{}, evalFunc func(data []byte) error, token string, n int, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	if formatURI != nil {
+		apiDef.URI = fmt.Sprintf(apiDef.URI, formatURI...)
+	}
 
 	var totalTime time.Duration
 	pass, fail := 0, 0
+
+	if n == 0 {
+		fmt.Println(apiDef.URI, "(n = 0; abort)")
+		return
+	}
 
 	for i := 0; i < n; i++ {
 		start := time.Now()
 		var resp []byte
 		var err error
-		if method == GET {
-			resp, err = GetApi(uri, queryParams)
-		} else if method == POST {
-			resp, err = PostApi(uri, payloadToJson(payload))
+		if apiDef.Method == GET {
+			resp, err = GetApi(apiDef.URI, queryParams, token)
+		} else if apiDef.Method == POST {
+			resp, err = PostApi(apiDef.URI, payloadToJson(payload), token)
 		} else {
-			log.Println("Error: unknown HTTP method", method)
+			log.Println("Error: unknown HTTP method", apiDef.Method)
 			return
 		}
 		if err != nil {
@@ -58,35 +68,10 @@ func testApi(uri string, method string, queryParams map[string]string, payload i
 		}
 		totalTime += time.Since(start)
 
-		var responseJson map[string]interface{}
-		err = json.Unmarshal(resp, &responseJson)
+		err = evalFunc(resp)
+
 		if err != nil {
-			log.Println("failed to unmarshal API response:", err)
-			return
-		}
-
-		// check that all expected values in expOut exist and match in responseJson
-		badResponse := false
-		for key, val := range expOut {
-			respVal, exists := responseJson[key]
-			if !exists {
-				log.Println("Error: expected data not found in API response.")
-				log.Println("Expected key:", key)
-				badResponse = true
-				continue
-			}
-			if val == EXISTS_CHECK {
-				// value exists, so we good
-				continue
-			}
-			if respVal != val {
-				log.Println("Error: API response has data that doesn't match the expected output.")
-				log.Printf("(key=%s) Expected: %s, Got: %s\n", key, val, respVal)
-				badResponse = true
-			}
-		}
-
-		if badResponse {
+			log.Println(apiDef.URI, err)
 			fail++
 		} else {
 			pass++
@@ -100,24 +85,82 @@ func testApi(uri string, method string, queryParams map[string]string, payload i
 	} else {
 		status += " (Pass!)"
 	}
-	fmt.Printf("%s %s %d ms\n", uri, status, averageExecTime.Milliseconds())
+	fmt.Printf("%s %s %d ms\n", apiDef.URI, status, averageExecTime.Milliseconds())
+}
+
+func login() string {
+	loginResp, err := PostApi(LoginAPI.URI, payloadToJson(LoginPayload{
+		Email:    testAccUser,
+		Password: testAccPass,
+	}), "")
+	if err != nil {
+		log.Fatal("failed to login with test user:", err)
+	}
+
+	var responseJson map[string]interface{}
+	err = json.Unmarshal(loginResp, &responseJson)
+	if err != nil {
+		log.Fatal("failed to unmarshal API response:", err)
+	}
+
+	token, exists := responseJson["token"]
+	if !exists {
+		log.Fatal("failed to get token from response")
+	}
+	return token.(string)
 }
 
 // RunStatusCheck tests the connectivity, response time, etc of all APIs (well, those that are registered here so far).
 func RunStatusCheck() {
 	var wg sync.WaitGroup
-	wg.Add(2)
-
+	wg.Add(3)
 	n := 3
+
+	// First, officially login to get the token
+	token := login()
+	if token == "" {
+		log.Fatal("failed to get token")
+	}
+	fmt.Println("(login succeeded)")
+
 	// Login
-	go testApi(LoginURI, POST, nil, LoginPayload{
+	go testApi(LoginAPI, nil, nil, LoginPayload{
 		Email:    testAccUser,
 		Password: testAccPass,
-	}, map[string]interface{}{
-		"token": EXISTS_CHECK,
-	}, n, &wg)
+	}, func(data []byte) error {
+		var respJson map[string]interface{}
+		if err := json.Unmarshal(data, &respJson); err != nil {
+			return err
+		}
+		if _, exists := respJson["token"]; !exists {
+			return errors.New("missing token in response")
+		}
+		return nil
+	}, "", n, &wg)
+
+	// Workspaces
+	go testApi(GetWorkspacesAPI, nil, nil, nil, func(data []byte) error {
+		var respJson map[string]interface{}
+		if err := json.Unmarshal(data, &respJson); err != nil {
+			return err
+		}
+		if _, exists := respJson["workspaces"]; !exists {
+			return errors.New("missing workspaces in response")
+		}
+		return nil
+	}, token, n, &wg)
+
 	// GetActions
-	go testApi(fmt.Sprintf(GetActionsURI, testD_ID), GET, nil, nil, nil, n, &wg)
+	go testApi(GetActionsAPI, []any{testD_ID}, nil, nil, func(data []byte) error {
+		var respJson []map[string]interface{}
+		if err := json.Unmarshal(data, &respJson); err != nil {
+			return err
+		}
+		if len(respJson) == 0 {
+			return errors.New("no action details found in response")
+		}
+		return nil
+	}, token, n, &wg)
 
 	wg.Wait()
 	fmt.Println("done!")

@@ -19,12 +19,16 @@ func SetBaseUrl(url string) {
 	baseURL = url
 }
 
-func PostApi(uri string, body []byte) ([]byte, error) {
+func PostApi(uri string, body []byte, token string) ([]byte, error) {
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s", baseURL, uri), bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+
+	if token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -35,7 +39,7 @@ func PostApi(uri string, body []byte) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func GetApi(uri string, queryParams map[string]string) ([]byte, error) {
+func GetApi(uri string, queryParams map[string]string, token string) ([]byte, error) {
 	if queryParams != nil {
 		params := make([]string, 0)
 		uri += "?"
@@ -48,6 +52,10 @@ func GetApi(uri string, queryParams map[string]string) ([]byte, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", baseURL, uri), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
 	resp, err := httpClient.Do(req)
