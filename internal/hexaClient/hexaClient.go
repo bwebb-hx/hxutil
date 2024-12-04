@@ -2,8 +2,10 @@ package hexaclient
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -65,4 +67,26 @@ func GetApi(uri string, queryParams map[string]string, token string) ([]byte, er
 	defer resp.Body.Close()
 
 	return io.ReadAll(resp.Body)
+}
+
+func Login(email, password string) string {
+	loginResp, err := PostApi(LoginAPI.URI, payloadToJson(LoginPayload{
+		Email:    email,
+		Password: password,
+	}), "")
+	if err != nil {
+		log.Fatal("failed to login with test user:", err)
+	}
+
+	var responseJson map[string]interface{}
+	err = json.Unmarshal(loginResp, &responseJson)
+	if err != nil {
+		log.Fatal("failed to unmarshal API response:", err)
+	}
+
+	token, exists := responseJson["token"]
+	if !exists {
+		log.Fatal("failed to get token from response")
+	}
+	return token.(string)
 }

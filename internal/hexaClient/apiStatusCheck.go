@@ -12,10 +12,10 @@ import (
 
 const (
 	// Dear hackers: these credentials are only for testing, so they don't protect anything important.
-	testAccUser   = "b.webb+test@hexabase.com"
-	testAccPass   = "test123"
-	testP_ID      = "674716ff253630d46156a153"
-	testD_ID      = "674724ac4ba983711e015530"
+	TestAccUser   = "b.webb+test@hexabase.com"
+	TestAccPass   = "test123"
+	TestP_ID      = "674716ff253630d46156a153"
+	TestD_ID      = "674724ac4ba983711e015530"
 	testAction_ID = "674724acb7eeb7dd909dd15b"
 	testVarName   = "ENV_VARIABLE_1"
 )
@@ -92,25 +92,7 @@ func testApi(apiDef ApiEndpoint, formatURI []any, queryParams map[string]string,
 }
 
 func login() string {
-	loginResp, err := PostApi(LoginAPI.URI, payloadToJson(LoginPayload{
-		Email:    testAccUser,
-		Password: testAccPass,
-	}), "")
-	if err != nil {
-		log.Fatal("failed to login with test user:", err)
-	}
-
-	var responseJson map[string]interface{}
-	err = json.Unmarshal(loginResp, &responseJson)
-	if err != nil {
-		log.Fatal("failed to unmarshal API response:", err)
-	}
-
-	token, exists := responseJson["token"]
-	if !exists {
-		log.Fatal("failed to get token from response")
-	}
-	return token.(string)
+	return Login(TestAccUser, TestAccPass)
 }
 
 // RunStatusCheck tests the connectivity, response time, etc of all APIs (well, those that are registered here so far).
@@ -128,8 +110,8 @@ func RunStatusCheck() {
 
 	// Login
 	go testApi(LoginAPI, nil, nil, LoginPayload{
-		Email:    testAccUser,
-		Password: testAccPass,
+		Email:    TestAccUser,
+		Password: TestAccPass,
 	}, func(data []byte) error {
 		var respJson map[string]interface{}
 		if err := json.Unmarshal(data, &respJson); err != nil {
@@ -154,7 +136,7 @@ func RunStatusCheck() {
 	}, token, n, &wg)
 
 	// GetActions
-	go testApi(GetActionsAPI, []any{testD_ID}, nil, nil, func(data []byte) error {
+	go testApi(GetActionsAPI, []any{TestD_ID}, nil, nil, func(data []byte) error {
 		var respJson []map[string]interface{}
 		if err := json.Unmarshal(data, &respJson); err != nil {
 			return err
@@ -174,7 +156,7 @@ func RunStatusCheck() {
 		return nil
 	}, token, n, &wg)
 
-	go testApi(GetApplicationScriptVariableAPI, []any{testP_ID, testVarName}, nil, nil, func(data []byte) error {
+	go testApi(GetApplicationScriptVariableAPI, []any{TestP_ID, testVarName}, nil, nil, func(data []byte) error {
 		var jsonData map[string]interface{}
 		if err := json.Unmarshal(data, &jsonData); err != nil {
 			return err
