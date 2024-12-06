@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
-const genDocs = true
+const genDocs = false
 
 func main() {
 	if genDocs {
