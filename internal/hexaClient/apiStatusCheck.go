@@ -8,6 +8,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
+)
+
+var (
+	passColor = color.New(color.FgGreen)
+	failColor = color.New(color.FgRed)
+
+	speedFastColor = color.New(color.FgHiGreen)
+	speedOkayColor = color.New(color.FgCyan)
+	speedPoorColor = color.New(color.FgMagenta)
+	speedSlowColor = color.New(color.FgHiRed)
+	speedDeadColor = color.New(color.BgRed, color.FgBlack)
 )
 
 const (
@@ -38,7 +51,7 @@ func payloadToJson(data interface{}) []byte {
 }
 
 // testApi tests the given API with the given payload.
-func testApi(apiDef ApiEndpoint, formatURI []any, queryParams map[string]string, payload interface{}, evalFunc func(data []byte) error, token string, n int, wg *sync.WaitGroup) {
+func testApi(apiDef ApiEndpoint, formatURI []any, queryParams map[string]string, payload interface{}, evalFunc func(data []byte) error, n int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	if formatURI != nil {
@@ -58,9 +71,9 @@ func testApi(apiDef ApiEndpoint, formatURI []any, queryParams map[string]string,
 		var resp []byte
 		var err error
 		if apiDef.Method == GET {
-			resp, err = GetApi(apiDef.URI, queryParams, token)
+			resp, err = GetApi(apiDef.URI, queryParams)
 		} else if apiDef.Method == POST {
-			resp, err = PostApi(apiDef.URI, payloadToJson(payload), token)
+			resp, err = PostApi(apiDef.URI, payloadToJson(payload))
 		} else {
 			log.Println("Error: unknown HTTP method", apiDef.Method)
 			return
@@ -88,7 +101,32 @@ func testApi(apiDef ApiEndpoint, formatURI []any, queryParams map[string]string,
 	} else {
 		status += " (Pass!)"
 	}
-	fmt.Printf("%s %s %d ms\n", apiDef.DisplayURI, status, averageExecTime.Milliseconds())
+	method := apiDef.Method
+	if method == "GET" {
+		method += " "
+	}
+
+	c := failColor
+	if fail == 0 {
+		c = passColor
+	}
+	c.Printf("%s %s %s %s ms\n", method, apiDef.DisplayURI, status, speedometer(averageExecTime.Milliseconds()))
+}
+
+func speedometer(ms int64) string {
+	if ms <= 100 {
+		return speedFastColor.Sprint(ms)
+	}
+	if ms <= 300 {
+		return speedOkayColor.Sprint(ms)
+	}
+	if ms <= 1000 {
+		return speedPoorColor.Sprint(ms)
+	}
+	if ms <= 5000 {
+		return speedSlowColor.Sprint(ms)
+	}
+	return speedDeadColor.Sprint(ms)
 }
 
 func login() string {
@@ -98,7 +136,7 @@ func login() string {
 // RunStatusCheck tests the connectivity, response time, etc of all APIs (well, those that are registered here so far).
 func RunStatusCheck() {
 	var wg sync.WaitGroup
-	wg.Add(5)
+	wg.Add(6)
 	n := 3
 
 	// First, officially login to get the token
@@ -121,7 +159,7 @@ func RunStatusCheck() {
 			return errors.New("missing token in response")
 		}
 		return nil
-	}, "", n, &wg)
+	}, n, &wg)
 
 	// Workspaces
 	go testApi(GetWorkspacesAPI, nil, nil, nil, func(data []byte) error {
@@ -133,7 +171,7 @@ func RunStatusCheck() {
 			return errors.New("missing workspaces in response")
 		}
 		return nil
-	}, token, n, &wg)
+	}, n, &wg)
 
 	// GetActions
 	go testApi(GetActionsAPI, []any{TestD_ID}, nil, nil, func(data []byte) error {
@@ -145,7 +183,7 @@ func RunStatusCheck() {
 			return errors.New("no action details found in response")
 		}
 		return nil
-	}, token, n, &wg)
+	}, n, &wg)
 
 	// DownloadActionScript
 	go testApi(DownloadActionScriptAPI, []any{testAction_ID}, map[string]string{"script_type": "post"}, nil, func(data []byte) error {
@@ -154,8 +192,9 @@ func RunStatusCheck() {
 			return errors.New("failed to load actionscript")
 		}
 		return nil
-	}, token, n, &wg)
+	}, n, &wg)
 
+	// get env variables
 	go testApi(GetApplicationScriptVariableAPI, []any{TestP_ID, testVarName}, nil, nil, func(data []byte) error {
 		var jsonData map[string]interface{}
 		if err := json.Unmarshal(data, &jsonData); err != nil {
@@ -168,7 +207,21 @@ func RunStatusCheck() {
 			return errors.New("environment variable value incorrect or missing")
 		}
 		return nil
-	}, token, n, &wg)
+	}, n, &wg)
+
+	go testApi(GetDatastoresAPI, []any{TestP_ID}, nil, nil, func(data []byte) error {
+		var jsonData []map[string]interface{}
+		if err := json.Unmarshal(data, &jsonData); err != nil {
+			return err
+		}
+		if len(jsonData) == 0 {
+			return errors.New("no datastores found")
+		}
+		if _, exists := jsonData[0]["datastore_id"]; !exists {
+			return errors.New("datastore_id not found in response")
+		}
+		return nil
+	}, n, &wg)
 
 	wg.Wait()
 	fmt.Println("done!")

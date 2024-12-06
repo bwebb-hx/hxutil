@@ -36,16 +36,18 @@ hxutil api call /api/v0/login -m POST -b '{ "email": "user@company.com", "passwo
 		}
 		uri := args[0]
 
-		token := ""
 		if auth {
-			token = hexaclient.Login(hexaclient.TestAccUser, hexaclient.TestAccPass)
+			token := hexaclient.Login(hexaclient.TestAccUser, hexaclient.TestAccPass)
+			if token == "" {
+				log.Println("token from Login is empty")
+			}
 		}
 
 		if method == "GET" {
 			if body != "" {
 				fmt.Println("Warning: given body not used since this is a GET request. Use the --method flag to make a POST request.")
 			}
-			resp, err := hexaclient.GetApi(uri, nil, token)
+			resp, err := hexaclient.GetApi(uri, nil)
 			if err != nil {
 				cmd.PrintErrln("Error occurred in API execution:", err)
 				return
@@ -53,7 +55,7 @@ hxutil api call /api/v0/login -m POST -b '{ "email": "user@company.com", "passwo
 			formatResponse(resp)
 			return
 		} else if method == "POST" {
-			resp, err := hexaclient.PostApi(uri, []byte(body), token)
+			resp, err := hexaclient.PostApi(uri, []byte(body))
 			if err != nil {
 				cmd.PrintErrln("Error occurred in APIP execution:", err)
 				return

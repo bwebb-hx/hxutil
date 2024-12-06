@@ -13,6 +13,8 @@ import (
 
 var baseURL = "https://api.hexabase.com"
 
+var Token string = ""
+
 var httpClient = &http.Client{
 	Timeout: 60 * time.Second,
 }
@@ -21,15 +23,15 @@ func SetBaseUrl(url string) {
 	baseURL = url
 }
 
-func PostApi(uri string, body []byte, token string) ([]byte, error) {
+func PostApi(uri string, body []byte) ([]byte, error) {
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s", baseURL, uri), bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	if token != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	if Token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", Token))
 	}
 
 	resp, err := httpClient.Do(req)
@@ -41,7 +43,7 @@ func PostApi(uri string, body []byte, token string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func GetApi(uri string, queryParams map[string]string, token string) ([]byte, error) {
+func GetApi(uri string, queryParams map[string]string) ([]byte, error) {
 	if queryParams != nil {
 		params := make([]string, 0)
 		uri += "?"
@@ -56,8 +58,8 @@ func GetApi(uri string, queryParams map[string]string, token string) ([]byte, er
 		return nil, err
 	}
 
-	if token != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	if Token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", Token))
 	}
 
 	resp, err := httpClient.Do(req)
@@ -73,7 +75,7 @@ func Login(email, password string) string {
 	loginResp, err := PostApi(LoginAPI.URI, payloadToJson(LoginPayload{
 		Email:    email,
 		Password: password,
-	}), "")
+	}))
 	if err != nil {
 		log.Fatal("failed to login with test user:", err)
 	}
@@ -88,5 +90,7 @@ func Login(email, password string) string {
 	if !exists {
 		log.Fatal("failed to get token from response")
 	}
-	return token.(string)
+
+	Token = token.(string)
+	return Token
 }

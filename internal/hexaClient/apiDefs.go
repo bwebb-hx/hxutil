@@ -38,6 +38,16 @@ var GetActionsAPI = ApiEndpoint{
 	RequirePayload: false,
 }
 
+type GetActionsResponse []struct {
+	W_ID           string `json:"workspace_id"`
+	P_ID           string `json:"project_id"`
+	D_ID           string `json:"datastore_id"`
+	ActionID       string `json:"action_id"`
+	IsStatusAction bool   `json:"is_status_action"`
+	DisplayID      string `json:"display_id"`
+	Name           string `json:"name"`
+}
+
 // Based on: https://github.com/hexabase/hexabase-cli/blob/master/src/commands/actions/scripts/download.ts
 //
 // Query Params:
@@ -57,4 +67,21 @@ var GetApplicationScriptVariableAPI = ApiEndpoint{
 	Method:         GET,
 	RequireToken:   true,
 	RequirePayload: false,
+}
+
+var GetDatastoresAPI = ApiEndpoint{
+	URI:            "/api/v0/applications/%s/datastores",
+	DisplayURI:     "/api/v0/applications/:project-id/datastores",
+	Method:         GET,
+	RequireToken:   true,
+	RequirePayload: false,
+}
+
+type GetDatastoresResponse []struct {
+	DatastoreID string `json:"datastore_id"`
+	Name        string `json:"name"`
+	DisplayID   string `json:"display_id"`
+	Deleted     bool   `json:"deleted"`
+	Imported    bool   `json:"imported"`
+	Uploading   bool   `json:"uploading"`
 }
