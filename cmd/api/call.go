@@ -24,10 +24,10 @@ var callCmd = &cobra.Command{
 You can optionally enter variable naems in the URI, such as ":p-id" (or :project-id), :d-id (:datastore-id), etc
 which will be automatically replaced with the config variables, user, etc.
 
-# do a GET request, with config variables (:d-id) applied to the URI and the auth flag set
+// do a GET request, with config variables (:d-id) applied to the URI and the auth flag set
 hxutil api call /api/v0/datastores/:d-id/actions -a
 
-# do a POST call with a payload, without authorization
+// do a POST call with a payload, without authorization
 hxutil api call /api/v0/login -m POST -b '{ "email": "user@company.com", "password": "xyz" }'`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {

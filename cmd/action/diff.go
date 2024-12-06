@@ -13,13 +13,11 @@ var dir string
 // diffCmd represents the diff command
 var diffCmd = &cobra.Command{
 	Use:   "diff",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Diff ActionScripts between a local repository and the remote version saved in Hexabase.",
+	Long: `Diff ActionScripts between a local repository and the remote version saved in Hexabase.
+This command is useful for ensuring that ActionScripts that are saved in Hexabase are properly tracked in your version control.
+It is expected that ActionScripts are saved in your project using the display ID of the action, suffixed with either "pre" or "post" depending on the script type.
+This command will recursively search all directories under the directory it is called in.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		projectPath := dir
 
