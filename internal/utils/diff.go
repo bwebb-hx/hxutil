@@ -15,19 +15,22 @@ func GetDiff(s1, s2 string, diffParams DiffParams) string {
 
 	diffs := dmp.DiffMain(s1, s2, false)
 
+	// figure out if a diff exists
 	diffExists := false
-	if len(diffs) > 1 {
-		diffExists = true
-	} else if len(diffs) == 1 && diffs[0].Type != diffmatchpatch.DiffEqual {
-		diffExists = true
+	for _, diff := range diffs {
+		if diff.Type != diffmatchpatch.DiffEqual {
+			if strings.TrimSpace(diff.Text) != "" {
+				diffExists = true
+				break
+			}
+		}
 	}
-
 	if !diffExists {
 		return ""
 	}
 
 	filterDiffs := make([]diffmatchpatch.Diff, 0)
-	for _, diff := range filterDiffs {
+	for _, diff := range diffs {
 		if diff.Type == diffmatchpatch.DiffEqual {
 			diff.Text = truncateSection(diff.Text)
 		}

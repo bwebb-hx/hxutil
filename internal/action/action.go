@@ -18,6 +18,8 @@ import (
 const OUT = ".as_temp"
 const CONFIG = ".hx-tools.json"
 
+var INTERACTIVE_MODE = true
+
 type configData struct {
 	Username       string `json:"username"`
 	Password       string
@@ -116,13 +118,16 @@ func DiffActionScripts(absPath string) {
 			diffSearchErrs.combineCounts(searchErrs)
 		}
 		if diff {
-			diffFiles = append(diffFiles, action.DisplayID+" (post)")
+			diffFiles = append(diffFiles, fmt.Sprintf("%s (post) [%s]", action.DisplayID, action.DatastoreName))
 		}
 		totalComps++
 	}
 
 	fmt.Println("\nSUMMARY\n=======")
-	fmt.Println("ActionScripts with local differences:", diffFiles)
+	fmt.Println("ActionScripts with local differences:")
+	for _, diffFile := range diffFiles {
+		fmt.Println(diffFile)
+	}
 	fmt.Println("Total files checked:", totalComps)
 	if diffSearchErrs.errOccurred() {
 		fmt.Println(diffSearchErrs)
@@ -211,7 +216,7 @@ func diffActionScript(action action, absPath string, scriptType string) (bool, d
 		if !d.IsDir() && strings.HasPrefix(d.Name(), action.DisplayID) {
 			if strings.HasSuffix(d.Name(), scriptType+".js") {
 				// match found! get diff results
-				diffVal = diff(path, actionscript, d.Name())
+				diffVal = diff(path, actionscript, d.Name(), action.DatastoreName)
 				found = true
 				return stop
 			}
@@ -236,18 +241,22 @@ func diffActionScript(action action, absPath string, scriptType string) (bool, d
 }
 
 // returns true if a difference is found
-func diff(local, remoteString, fileName string) bool {
+func diff(local, remoteString, fileName, datastoreName string) bool {
 	localBytes, err := os.ReadFile(local)
 	if err != nil {
 		log.Println("failed to load local file:", err)
 		return false
 	}
+
 	diff := utils.GetDiff(string(localBytes), remoteString, utils.DiffParams{TrimEqual: true})
 	if diff != "" {
 		fmt.Println("\n===")
-		fmt.Println(fileName)
+		fmt.Println(fileName, fmt.Sprintf("(%s)\n", datastoreName))
 		fmt.Println(diff)
 		fmt.Println("===")
+		if INTERACTIVE_MODE {
+			enterToContinue()
+		}
 		return true
 	}
 	return false
@@ -261,6 +270,11 @@ func getInput(prompt string) string {
 		log.Fatal("failed to read input:", err)
 	}
 	return input
+}
+
+func enterToContinue() {
+	fmt.Println("Press Enter to continue...")
+	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
 func saveConfig(config configData) {
