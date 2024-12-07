@@ -4,6 +4,36 @@ This is a utility I've made for automating and simplifying workflows and testing
 
 It has a few useful tools so far, mainly for managing ActionScript and testing APIs. In the future, hopefully it'll include a lot more.
 
+## Installation
+
+First, you need to have Go installed. See the Go website for more info.
+
+If you just want to use the CLI, the easiest thing is to install it like this:
+
+```bash
+go install github.com/bwebb-hx/hxutil
+```
+
+Once it's installed this way, you can just run the command in your terminal with `hxutil`.
+
+### Running locally
+
+If you'd like to check out the source code and run it locally, make changes, etc:
+
+```bash
+# clone from github
+git clone github.com/bwebb-hx/hxutil.git
+cd hxutil
+
+# build and run when you wanna test changes
+go build
+./hxutil <commands, flags, etc>
+
+# to install your local version and use as a normal cli
+go install
+hxutil <commands, flags, etc>
+```
+
 ## Usage
 
 For usage, refer to [cli docs](./docs/hxutil.md). It will guide you through the different commands.
