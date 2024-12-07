@@ -109,7 +109,7 @@ func DiffActionScripts(absPath string) {
 			diffSearchErrs.combineCounts(searchErrs)
 		}
 		if diff {
-			diffFiles = append(diffFiles, action.DisplayID+" (pre)")
+			diffFiles = append(diffFiles, fmt.Sprintf("%s (pre) [%s]", action.DisplayID, action.DatastoreName))
 		}
 
 		// find post scripts

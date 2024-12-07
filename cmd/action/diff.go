@@ -32,6 +32,6 @@ This command will recursively search all directories under the directory it is c
 }
 
 func init() {
-	diffCmd.Flags().StringVarP(&dir, "dir", "d", ".", "path to a project directory to diff")
+	diffCmd.Flags().StringVarP(&dir, "dir", "d", ".", "path to a project directory to diff. defaults to the current directory.")
 	Cmd.AddCommand(diffCmd)
 }
