@@ -17,7 +17,10 @@ var diffCmd = &cobra.Command{
 	Long: `Diff ActionScripts between a local repository and the remote version saved in Hexabase.
 This command is useful for ensuring that ActionScripts that are saved in Hexabase are properly tracked in your version control.
 It is expected that ActionScripts are saved in your project using the display ID of the action, suffixed with either "pre" or "post" depending on the script type.
-This command will recursively search all directories under the directory it is called in.`,
+This command will recursively search all directories under the directory it is called in.
+
+Suggestions to developers, to make this tool work well for you:
+- all actions that have actionscripts should have unique display IDs, to ensure the correct code is diffed.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		projectPath := dir
 

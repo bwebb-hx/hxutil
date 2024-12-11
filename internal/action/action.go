@@ -98,6 +98,19 @@ func DiffActionScripts(absPath string) {
 		log.Fatal("No actions found in the given project:", config.P_ID)
 	}
 
+	// get all function actionscripts in the project
+	getFunctionsBytes, err := hexaclient.GetApi(hexaclient.UN_GetFunctionActionScriptAPI.URI, map[string]string{
+		"p_id": config.P_ID,
+	})
+	if err != nil {
+		log.Fatal("failed to get functions for project:", err)
+	}
+
+	var functions hexaclient.UN_GetFunctionScripScriptResponse
+	if err := json.Unmarshal(getFunctionsBytes, &functions); err != nil {
+		log.Println("failed to get actionscripts for functions")
+	}
+
 	diffFiles := make([]string, 0)
 	totalComps := 0
 	diffSearchErrs := diffSearchErrs{}
@@ -107,6 +120,10 @@ func DiffActionScripts(absPath string) {
 		diff, searchErrs := diffActionScript(action, absPath, "pre")
 		if searchErrs.errOccurred() {
 			diffSearchErrs.combineCounts(searchErrs)
+
+			if searchErrs.localNotFound > 0 {
+				diffFiles = append(diffFiles, fmt.Sprintf("**LOCAL NOT FOUND**: %s (pre) [%s]", action.DisplayID, action.DatastoreName))
+			}
 		}
 		if diff {
 			diffFiles = append(diffFiles, fmt.Sprintf("%s (pre) [%s]", action.DisplayID, action.DatastoreName))
@@ -116,6 +133,10 @@ func DiffActionScripts(absPath string) {
 		diff, searchErrs = diffActionScript(action, absPath, "post")
 		if searchErrs.errOccurred() {
 			diffSearchErrs.combineCounts(searchErrs)
+
+			if searchErrs.localNotFound > 0 {
+				diffFiles = append(diffFiles, fmt.Sprintf("**LOCAL NOT FOUND**: %s (post) [%s]", action.DisplayID, action.DatastoreName))
+			}
 		}
 		if diff {
 			diffFiles = append(diffFiles, fmt.Sprintf("%s (post) [%s]", action.DisplayID, action.DatastoreName))
@@ -123,12 +144,18 @@ func DiffActionScripts(absPath string) {
 		totalComps++
 	}
 
+	diffFunctions, diffFnSearchErrs := diffFunctionActionScripts(absPath, functions)
+	diffFiles = append(diffFiles, diffFunctions...)
+	if diffFnSearchErrs.errOccurred() {
+		diffSearchErrs.combineCounts(diffFnSearchErrs)
+	}
+
 	fmt.Println("\nSUMMARY\n=======")
-	fmt.Println("ActionScripts with local differences:")
+	fmt.Print("ActionScripts with local differences:\n\n")
 	for _, diffFile := range diffFiles {
 		fmt.Println(diffFile)
 	}
-	fmt.Println("Total files checked:", totalComps)
+	fmt.Println("\nTotal files checked:", totalComps)
 	if diffSearchErrs.errOccurred() {
 		fmt.Println(diffSearchErrs)
 	}
@@ -160,6 +187,54 @@ func (dse *diffSearchErrs) combineCounts(searchErrs diffSearchErrs) {
 	dse.localNotFound += searchErrs.localNotFound
 	dse.respUnexpected += searchErrs.respUnexpected
 	dse.walkDirErr += searchErrs.walkDirErr
+}
+
+func diffFunctionActionScripts(absPath string, functions hexaclient.UN_GetFunctionScripScriptResponse) ([]string, diffSearchErrs) {
+	diffFiles := make([]string, 0)
+	searchErrs := diffSearchErrs{}
+
+	for _, function := range functions {
+		actionscript := strings.TrimSpace(function.Pre.Script)
+		if actionscript == "" {
+			log.Println("empty function?:", function.DisplayID)
+			continue
+		}
+
+		// find the corresponding file
+		stop := errors.New("stop")
+		found := false
+		diffVal := false
+		err := filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && strings.HasPrefix(d.Name(), function.DisplayID) {
+				if strings.HasSuffix(d.Name(), ".js") {
+					// match found! get diff results
+					diffVal = diff(path, actionscript, d.Name(), "FUNCTION")
+					found = true
+					return stop
+				}
+			}
+			return nil
+		})
+		if err != nil && !errors.Is(err, stop) {
+			log.Println("an error occurred while walking project files:", err)
+			searchErrs.walkDirErr++
+			continue
+		}
+		if !found {
+			log.Println("failed to find function:", function.DisplayID)
+			searchErrs.localNotFound++
+			diffFiles = append(diffFiles, fmt.Sprintf("**LOCAL NOT FOUND**: %s [FUNCTION]", function.DisplayID))
+			continue
+		}
+		if diffVal {
+			diffFiles = append(diffFiles, function.DisplayID+" [FUNCTION]")
+		}
+	}
+
+	return diffFiles, searchErrs
 }
 
 func diffActionScript(action action, absPath string, scriptType string) (bool, diffSearchErrs) {
