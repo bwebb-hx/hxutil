@@ -85,3 +85,37 @@ type GetDatastoresResponse []struct {
 	Imported    bool   `json:"imported"`
 	Uploading   bool   `json:"uploading"`
 }
+
+// APP.HEXABASE.COM APIS
+// The following are not officially published APIs, but ones that I've found while investigating the
+// hexabase management console site using the network inspector
+// I will prefix all of these APIs with "UN" ("unofficial") until they are replaced with officially documented APIs.
+
+// (UNOFFICIAL)
+//
+// Query Params:
+//
+// - p_id: application (project) ID where the function is defined
+var UN_GetFunctionActionScriptAPI = ApiEndpoint{
+	URI:            "https://app.hexabase.com/v1/api/get_action_scripts",
+	DisplayURI:     "(UN) /v1/api/get_action_scripts",
+	Method:         GET,
+	RequireToken:   true,
+	RequirePayload: false,
+}
+
+type UN_GetFunctionScripScriptResponse []struct {
+	ID         string `json:"_id"`
+	AID        string `json:"a_id"`
+	FunctionID string `json:"fn_id"`
+	DID        string `json:"d_id"`
+	PID        string `json:"p_id"`
+	WID        string `json:"w_id"`
+	Pre        struct {
+		Script     string `json:"script"`
+		TimeoutSec int    `json:"timeout_sec"`
+	} `json:"pre"`
+	Name         string `json:"name"`
+	DisplayID    string `json:"display_id"`
+	WaitResponse bool   `json:"wait_response"`
+}

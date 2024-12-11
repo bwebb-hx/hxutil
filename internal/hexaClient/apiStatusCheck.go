@@ -31,6 +31,7 @@ const (
 	TestD_ID      = "674724ac4ba983711e015530"
 	testAction_ID = "674724acb7eeb7dd909dd15b"
 	testVarName   = "ENV_VARIABLE_1"
+	testFuncName  = "function1"
 )
 
 const (
@@ -136,8 +137,117 @@ func login() string {
 // RunStatusCheck tests the connectivity, response time, etc of all APIs (well, those that are registered here so far).
 func RunStatusCheck() {
 	var wg sync.WaitGroup
-	wg.Add(6)
 	n := 3
+
+	// functions that represent an API test case.
+	apis := []func(){
+		func() {
+			// Login
+			testApi(LoginAPI, nil, nil, LoginPayload{
+				Email:    TestAccUser,
+				Password: TestAccPass,
+			}, func(data []byte) error {
+				var respJson map[string]interface{}
+				if err := json.Unmarshal(data, &respJson); err != nil {
+					return err
+				}
+				if _, exists := respJson["token"]; !exists {
+					return errors.New("missing token in response")
+				}
+				return nil
+			}, n, &wg)
+		},
+		func() {
+			// GetWorkspaces
+			testApi(GetWorkspacesAPI, nil, nil, nil, func(data []byte) error {
+				var respJson map[string]interface{}
+				if err := json.Unmarshal(data, &respJson); err != nil {
+					return err
+				}
+				if _, exists := respJson["workspaces"]; !exists {
+					return errors.New("missing workspaces in response")
+				}
+				return nil
+			}, n, &wg)
+		},
+		func() {
+			// GetActions
+			testApi(GetActionsAPI, []any{TestD_ID}, nil, nil, func(data []byte) error {
+				var respJson []map[string]interface{}
+				if err := json.Unmarshal(data, &respJson); err != nil {
+					return err
+				}
+				if len(respJson) == 0 {
+					return errors.New("no action details found in response")
+				}
+				return nil
+			}, n, &wg)
+		},
+		func() {
+			// DownloadActionScript
+			testApi(DownloadActionScriptAPI, []any{testAction_ID}, map[string]string{"script_type": "post"}, nil, func(data []byte) error {
+				actionScript := string(data)
+				if !strings.Contains(actionScript, "main(data)") {
+					return errors.New("failed to load actionscript")
+				}
+				return nil
+			}, n, &wg)
+		},
+		func() {
+			// get env variables
+			testApi(GetApplicationScriptVariableAPI, []any{TestP_ID, testVarName}, nil, nil, func(data []byte) error {
+				var jsonData map[string]interface{}
+				if err := json.Unmarshal(data, &jsonData); err != nil {
+					return err
+				}
+				if val, exists := jsonData["var_name"]; !exists || val != testVarName {
+					return errors.New("environment variable name incorrect or missing")
+				}
+				if val, exists := jsonData["value"]; !exists || val != "secret value" {
+					return errors.New("environment variable value incorrect or missing")
+				}
+				return nil
+			}, n, &wg)
+		},
+		func() {
+			// GetDatastores
+			testApi(GetDatastoresAPI, []any{TestP_ID}, nil, nil, func(data []byte) error {
+				var jsonData []map[string]interface{}
+				if err := json.Unmarshal(data, &jsonData); err != nil {
+					return err
+				}
+				if len(jsonData) == 0 {
+					return errors.New("no datastores found")
+				}
+				if _, exists := jsonData[0]["datastore_id"]; !exists {
+					return errors.New("datastore_id not found in response")
+				}
+				return nil
+			}, n, &wg)
+		},
+		func() {
+			// (UN) GetFunctionActionScript
+			testApi(UN_GetFunctionActionScriptAPI, nil, map[string]string{"p_id": TestP_ID}, nil, func(data []byte) error {
+				var jsonData UN_GetFunctionScripScriptResponse
+				if err := json.Unmarshal(data, &jsonData); err != nil {
+					return err
+				}
+				if len(jsonData) == 0 {
+					return errors.New("response contains no functions")
+				}
+				function := jsonData[0]
+				if function.DisplayID != testFuncName {
+					return errors.New("incorrect function name")
+				}
+				if !strings.Contains(function.Pre.Script, "async function main(data)") {
+					return errors.New("function actionscript contents are missing")
+				}
+				return nil
+			}, n, &wg)
+		},
+	}
+
+	wg.Add(len(apis))
 
 	// First, officially login to get the token
 	token := login()
@@ -146,82 +256,10 @@ func RunStatusCheck() {
 	}
 	fmt.Println("(login succeeded)")
 
-	// Login
-	go testApi(LoginAPI, nil, nil, LoginPayload{
-		Email:    TestAccUser,
-		Password: TestAccPass,
-	}, func(data []byte) error {
-		var respJson map[string]interface{}
-		if err := json.Unmarshal(data, &respJson); err != nil {
-			return err
-		}
-		if _, exists := respJson["token"]; !exists {
-			return errors.New("missing token in response")
-		}
-		return nil
-	}, n, &wg)
-
-	// Workspaces
-	go testApi(GetWorkspacesAPI, nil, nil, nil, func(data []byte) error {
-		var respJson map[string]interface{}
-		if err := json.Unmarshal(data, &respJson); err != nil {
-			return err
-		}
-		if _, exists := respJson["workspaces"]; !exists {
-			return errors.New("missing workspaces in response")
-		}
-		return nil
-	}, n, &wg)
-
-	// GetActions
-	go testApi(GetActionsAPI, []any{TestD_ID}, nil, nil, func(data []byte) error {
-		var respJson []map[string]interface{}
-		if err := json.Unmarshal(data, &respJson); err != nil {
-			return err
-		}
-		if len(respJson) == 0 {
-			return errors.New("no action details found in response")
-		}
-		return nil
-	}, n, &wg)
-
-	// DownloadActionScript
-	go testApi(DownloadActionScriptAPI, []any{testAction_ID}, map[string]string{"script_type": "post"}, nil, func(data []byte) error {
-		actionScript := string(data)
-		if !strings.Contains(actionScript, "main(data)") {
-			return errors.New("failed to load actionscript")
-		}
-		return nil
-	}, n, &wg)
-
-	// get env variables
-	go testApi(GetApplicationScriptVariableAPI, []any{TestP_ID, testVarName}, nil, nil, func(data []byte) error {
-		var jsonData map[string]interface{}
-		if err := json.Unmarshal(data, &jsonData); err != nil {
-			return err
-		}
-		if val, exists := jsonData["var_name"]; !exists || val != testVarName {
-			return errors.New("environment variable name incorrect or missing")
-		}
-		if val, exists := jsonData["value"]; !exists || val != "secret value" {
-			return errors.New("environment variable value incorrect or missing")
-		}
-		return nil
-	}, n, &wg)
-
-	go testApi(GetDatastoresAPI, []any{TestP_ID}, nil, nil, func(data []byte) error {
-		var jsonData []map[string]interface{}
-		if err := json.Unmarshal(data, &jsonData); err != nil {
-			return err
-		}
-		if len(jsonData) == 0 {
-			return errors.New("no datastores found")
-		}
-		if _, exists := jsonData[0]["datastore_id"]; !exists {
-			return errors.New("datastore_id not found in response")
-		}
-		return nil
-	}, n, &wg)
+	// run each api test concurrently
+	for _, fn := range apis {
+		go fn()
+	}
 
 	wg.Wait()
 	fmt.Println("done!")

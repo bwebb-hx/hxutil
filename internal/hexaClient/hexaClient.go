@@ -24,7 +24,11 @@ func SetBaseUrl(url string) {
 }
 
 func PostApi(uri string, body []byte) ([]byte, error) {
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s", baseURL, uri), bytes.NewReader(body))
+	if !strings.Contains(uri, "http") {
+		uri = fmt.Sprintf("%s%s", baseURL, uri)
+	}
+
+	req, err := http.NewRequest("POST", uri, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +48,10 @@ func PostApi(uri string, body []byte) ([]byte, error) {
 }
 
 func GetApi(uri string, queryParams map[string]string) ([]byte, error) {
+	if !strings.Contains(uri, "http") {
+		uri = fmt.Sprintf("%s%s", baseURL, uri)
+	}
+
 	if queryParams != nil {
 		params := make([]string, 0)
 		uri += "?"
@@ -53,7 +61,7 @@ func GetApi(uri string, queryParams map[string]string) ([]byte, error) {
 		uri += strings.Join(params, "&")
 	}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", baseURL, uri), nil)
+	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return nil, err
 	}
