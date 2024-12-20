@@ -161,7 +161,7 @@ func DiffActionScripts(absPath string) {
 	}
 	fmt.Println("=======\n ")
 
-	if config.unsavedChanges && strings.ToLower(getInput("Save project/user details for next time? [Y/n]")) == "y" {
+	if config.unsavedChanges && strings.ToLower(utils.GetInput("Save project/user details for next time? [Y/n]")) == "y" {
 		saveConfig(config)
 	}
 }
@@ -337,16 +337,6 @@ func diff(local, remoteString, fileName, datastoreName string) bool {
 	return false
 }
 
-func getInput(prompt string) string {
-	var input string
-	fmt.Print(prompt, ": ")
-	_, err := fmt.Scanln(&input)
-	if err != nil {
-		log.Fatal("failed to read input:", err)
-	}
-	return input
-}
-
 func enterToContinue() {
 	fmt.Println("Press Enter to continue...")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
@@ -423,13 +413,13 @@ func loadConfig() configData {
 	fmt.Println("=====================")
 	fmt.Println("Username:", config.Username)
 	fmt.Println("Project ID:", config.P_ID)
-	if strings.ToLower(getInput("\n\nUse above config? [y/n]")) != "y" {
+	if strings.ToLower(utils.GetInput("\n\nUse above config? [y/n]")) != "y" {
 		fmt.Println("ignoring existing config.")
 		return getUserConfig()
 	}
 
 	// get password, since it's not saved in the config file
-	config.Password = getInput("login password")
+	config.Password = utils.GetInput("login password")
 
 	return config
 }
@@ -439,11 +429,11 @@ func getUserConfig() configData {
 	config := configData{}
 
 	fmt.Println("enter login credentials.")
-	username := getInput("email")
-	password := getInput("password")
+	username := utils.GetInput("email")
+	password := utils.GetInput("password")
 
 	fmt.Println("enter details of project to diff.")
-	p_id := getInput("project ID")
+	p_id := utils.GetInput("project ID")
 
 	config.Username = username
 	config.Password = password

@@ -1,5 +1,7 @@
 package hexaclient
 
+import "time"
+
 type ApiEndpoint struct {
 	URI            string
 	DisplayURI     string // URI to show as a general representation
@@ -118,4 +120,46 @@ type UN_GetFunctionScripScriptResponse []struct {
 	Name         string `json:"name"`
 	DisplayID    string `json:"display_id"`
 	WaitResponse bool   `json:"wait_response"`
+}
+
+// (UNOFFICIAL)
+//
+// Query Params:
+//
+// - p_id: application (project) ID
+var UN_GetProjectSettingsAPI = ApiEndpoint{
+	URI:            "https://app.hexabase.com/v1/api/get_project_settings",
+	DisplayURI:     "(UN) /v1/api/get_project_settings",
+	Method:         GET,
+	RequireToken:   true,
+	RequirePayload: false,
+}
+
+type Localization struct {
+	En string `json:"en"`
+	Ja string `json:"ja"`
+}
+
+type ScriptVar struct {
+	VarName string `json:"var_name"`
+	Desc    string `json:"desc"`
+	Value   string `json:"value"`
+	Enabled bool   `json:"enabled"`
+}
+
+type UN_GetProjectSettingsResponse struct {
+	ID                        string       `json:"id"`
+	PID                       string       `json:"p_id"`
+	WorkspaceID               string       `json:"workspace_id"`
+	Name                      Localization `json:"name"`
+	DisplayID                 string       `json:"display_id"`
+	Theme                     string       `json:"theme"`
+	DisableItemNotification   bool         `json:"disable_item_notification"`
+	DisableUnreadNotification bool         `json:"disable_unread_notification"`
+	TemplateID                string       `json:"template_id"`
+	DisplayOrder              int          `json:"display_order"`
+	ScriptVars                []ScriptVar  `json:"script_vars"`
+	UseCMSMode                bool         `json:"use_cms_mode"`
+	CreatedAt                 time.Time    `json:"created_at"`
+	UpdatedAt                 time.Time    `json:"updated_at"`
 }

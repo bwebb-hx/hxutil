@@ -245,6 +245,29 @@ func RunStatusCheck() {
 				return nil
 			}, n, &wg)
 		},
+		func() {
+			// (UN) GetProjectSettings
+			testApi(UN_GetProjectSettingsAPI, nil, map[string]string{"p_id": TestP_ID}, nil, func(data []byte) error {
+				var jsonData UN_GetProjectSettingsResponse
+				if err := json.Unmarshal(data, &jsonData); err != nil {
+					return err
+				}
+				if jsonData.PID != TestP_ID {
+					return errors.New("pid is incorrect")
+				}
+				varFound := false
+				for _, scriptVar := range jsonData.ScriptVars {
+					if scriptVar.VarName == testVarName {
+						varFound = true
+						break
+					}
+				}
+				if !varFound {
+					return errors.New("env var not found")
+				}
+				return nil
+			}, n, &wg)
+		},
 	}
 
 	wg.Add(len(apis))

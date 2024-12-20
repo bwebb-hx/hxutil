@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/bwebb-hx/hxutil/internal/utils"
 )
 
 var baseURL = "https://api.hexabase.com"
@@ -101,4 +103,12 @@ func Login(email, password string) string {
 
 	Token = token.(string)
 	return Token
+}
+
+func PromptLogin() string {
+	fmt.Println("enter login credentials.")
+	username := utils.GetInput("email")
+	password := utils.GetInput("password")
+
+	return Login(username, password)
 }
