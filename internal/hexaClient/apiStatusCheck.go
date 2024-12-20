@@ -228,7 +228,7 @@ func RunStatusCheck() {
 		func() {
 			// (UN) GetFunctionActionScript
 			testApi(UN_GetFunctionActionScriptAPI, nil, map[string]string{"p_id": TestP_ID}, nil, func(data []byte) error {
-				var jsonData UN_GetFunctionScripScriptResponse
+				var jsonData UN_GetFunctionActionScriptResponse
 				if err := json.Unmarshal(data, &jsonData); err != nil {
 					return err
 				}

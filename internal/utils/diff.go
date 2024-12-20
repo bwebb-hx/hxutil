@@ -6,11 +6,7 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
-type DiffParams struct {
-	TrimEqual bool
-}
-
-func GetDiff(s1, s2 string, diffParams DiffParams) string {
+func GetDiff(s1, s2 string) string {
 	dmp := diffmatchpatch.New()
 
 	diffs := dmp.DiffMain(s1, s2, false)

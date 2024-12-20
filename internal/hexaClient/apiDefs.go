@@ -106,7 +106,7 @@ var UN_GetFunctionActionScriptAPI = ApiEndpoint{
 	RequirePayload: false,
 }
 
-type UN_GetFunctionScripScriptResponse []struct {
+type UN_GetFunctionActionScriptResponse []struct {
 	ID         string `json:"_id"`
 	AID        string `json:"a_id"`
 	FunctionID string `json:"fn_id"`

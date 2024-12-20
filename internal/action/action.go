@@ -106,7 +106,7 @@ func DiffActionScripts(absPath string) {
 		log.Fatal("failed to get functions for project:", err)
 	}
 
-	var functions hexaclient.UN_GetFunctionScripScriptResponse
+	var functions hexaclient.UN_GetFunctionActionScriptResponse
 	if err := json.Unmarshal(getFunctionsBytes, &functions); err != nil {
 		log.Println("failed to get actionscripts for functions")
 	}
@@ -189,7 +189,7 @@ func (dse *diffSearchErrs) combineCounts(searchErrs diffSearchErrs) {
 	dse.walkDirErr += searchErrs.walkDirErr
 }
 
-func diffFunctionActionScripts(absPath string, functions hexaclient.UN_GetFunctionScripScriptResponse) ([]string, diffSearchErrs) {
+func diffFunctionActionScripts(absPath string, functions hexaclient.UN_GetFunctionActionScriptResponse) ([]string, diffSearchErrs) {
 	diffFiles := make([]string, 0)
 	searchErrs := diffSearchErrs{}
 
@@ -323,23 +323,18 @@ func diff(local, remoteString, fileName, datastoreName string) bool {
 		return false
 	}
 
-	diff := utils.GetDiff(string(localBytes), remoteString, utils.DiffParams{TrimEqual: true})
+	diff := utils.GetDiff(string(localBytes), remoteString)
 	if diff != "" {
 		fmt.Println("\n===")
 		fmt.Println(fileName, fmt.Sprintf("(%s)\n", datastoreName))
 		fmt.Println(diff)
 		fmt.Println("===")
 		if INTERACTIVE_MODE {
-			enterToContinue()
+			utils.EnterToContinue()
 		}
 		return true
 	}
 	return false
-}
-
-func enterToContinue() {
-	fmt.Println("Press Enter to continue...")
-	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
 func saveConfig(config configData) {
