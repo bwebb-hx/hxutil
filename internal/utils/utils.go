@@ -16,7 +16,7 @@ var (
 	ColorFatal   = color.New(color.FgBlack, color.BgHiRed)
 	ColorSuccess = color.New(color.FgHiGreen)
 	ColorInfo    = color.New(color.FgHiMagenta)
-	ColorLowkey  = color.New(color.FgHiBlack)
+	ColorHint    = color.New(color.FgHiBlack)
 )
 
 func GetInput(prompt string) string {
@@ -70,5 +70,5 @@ func Fatal(header, desc string) {
 }
 
 func Hint(text string) {
-	ColorLowkey.Println("\n" + text)
+	ColorHint.Println("\n" + text)
 }

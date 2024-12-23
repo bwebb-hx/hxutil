@@ -84,9 +84,9 @@ func (c *Config) SelectProject() *Project {
 	if len(c.Projects) > 0 {
 		fmt.Println("Existing projects:")
 		for i, project := range c.Projects {
-			fmt.Printf("%v) %s [%s]\n", i+1, project.DisplayID, project.P_ID)
+			fmt.Printf("%v) %s %s\n", i+1, project.DisplayID, utils.ColorHint.Sprintf("[%s]", project.P_ID))
 		}
-		input := utils.GetInput("Choose a project (or \"new\")")
+		input := utils.GetInput("Choose project (or \"new\")")
 
 		if input == "new" {
 			return c.AddProject()
@@ -158,7 +158,7 @@ func (c *Config) SelectUserAndLogin(p_id string) {
 		return
 	}
 	for i, user := range c.Users {
-		fmt.Println(i+1, ")", user.Email)
+		fmt.Printf("%v) %s", i+1, user.Email)
 	}
 	input := utils.GetInput("Choose user (or \"new\")")
 	if strings.ToLower(input) == "new" {
