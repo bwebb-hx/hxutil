@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -87,21 +86,24 @@ func Login(email, password string) string {
 		Password: password,
 	}))
 	if err != nil {
-		log.Fatal("failed to login with test user:", err)
+		utils.Fatal("error occurred during login", err.Error())
 	}
 
 	var responseJson map[string]interface{}
 	err = json.Unmarshal(loginResp, &responseJson)
 	if err != nil {
-		log.Fatal("failed to unmarshal API response:", err)
+		utils.Fatal("failed to unmarshal login API response", err.Error())
 	}
 
 	token, exists := responseJson["token"]
 	if !exists {
-		log.Fatal("failed to get token from response")
+		utils.Fatal("login failed", "failed to get token from response")
 	}
 
 	Token = token.(string)
+	if Token == "" {
+		utils.Fatal("login failed", "token is unexpectedly empty")
+	}
 	return Token
 }
 

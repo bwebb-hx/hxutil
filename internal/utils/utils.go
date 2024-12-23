@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/fatih/color"
 )
@@ -26,6 +27,20 @@ func GetInput(prompt string) string {
 		log.Fatal("failed to read input:", err)
 	}
 	return input
+}
+
+// returns True if Yes, False otherwise. All prompts will have "[Y/n]" added to it.
+func YesOrNo(prompt string) bool {
+	if prompt != "" {
+		prompt += " "
+	}
+	prompt += "[Y/n]"
+	userInput := strings.ToLower(GetInput(prompt))
+
+	if userInput == "y" || userInput == "yes" {
+		return true
+	}
+	return false
 }
 
 func EnterToContinue() {

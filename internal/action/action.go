@@ -1,7 +1,6 @@
 package action
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,21 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bwebb-hx/hxutil/internal/config"
 	hexaclient "github.com/bwebb-hx/hxutil/internal/hexaClient"
 	"github.com/bwebb-hx/hxutil/internal/utils"
 )
 
 const OUT = ".as_temp"
-const CONFIG = ".hx-tools.json"
 
 var INTERACTIVE_MODE = true
-
-type configData struct {
-	Username       string `json:"username"`
-	Password       string
-	P_ID           string `json:"p_id"`
-	unsavedChanges bool
-}
 
 type action struct {
 	ID            string
@@ -71,17 +63,18 @@ func getAllActionIDs(d_id string, datastores hexaclient.GetDatastoresResponse) [
 }
 
 func DiffActionScripts(absPath string) {
-	// load config, if it exists
-	config := loadConfig()
-
-	// login to hexabase
-	token := hexaclient.Login(config.Username, config.Password)
-	if token == "" {
-		log.Fatal("failed to get login token")
+	// load config
+	c := config.GetConfig()
+	project := c.SelectProject()
+	if project == nil {
+		utils.Fatal("no project selected", "")
 	}
 
+	// login to hexabase
+	c.SelectUserAndLogin(project.P_ID)
+
 	// get all actionscripts IDs for all datastores in the project
-	getDatastoresBytes, err := hexaclient.GetApi(fmt.Sprintf(hexaclient.GetDatastoresAPI.URI, config.P_ID), nil)
+	getDatastoresBytes, err := hexaclient.GetApi(fmt.Sprintf(hexaclient.GetDatastoresAPI.URI, project.P_ID), nil)
 	if err != nil {
 		log.Fatal("failed to get datastores for project:", err)
 	}
@@ -95,12 +88,12 @@ func DiffActionScripts(absPath string) {
 		actions = append(actions, getAllActionIDs(datastore.DatastoreID, datastores)...)
 	}
 	if len(actions) == 0 {
-		log.Fatal("No actions found in the given project:", config.P_ID)
+		log.Fatal("No actions found in the given project:", project.P_ID)
 	}
 
 	// get all function actionscripts in the project
 	getFunctionsBytes, err := hexaclient.GetApi(hexaclient.UN_GetFunctionActionScriptAPI.URI, map[string]string{
-		"p_id": config.P_ID,
+		"p_id": project.P_ID,
 	})
 	if err != nil {
 		log.Fatal("failed to get functions for project:", err)
@@ -160,10 +153,6 @@ func DiffActionScripts(absPath string) {
 		fmt.Println(diffSearchErrs)
 	}
 	fmt.Println("=======\n ")
-
-	if config.unsavedChanges && strings.ToLower(utils.GetInput("Save project/user details for next time? [Y/n]")) == "y" {
-		saveConfig(config)
-	}
 }
 
 type diffSearchErrs struct {
@@ -335,105 +324,4 @@ func diff(local, remoteString, fileName, datastoreName string) bool {
 		return true
 	}
 	return false
-}
-
-func saveConfig(config configData) {
-	bytes, err := json.MarshalIndent(config, "", "    ")
-	if err != nil {
-		log.Println("failed to save config json:", err)
-		return
-	}
-
-	err = os.WriteFile(CONFIG, bytes, 0644)
-	if err != nil {
-		log.Println("failed to write json:", err)
-		return
-	}
-
-	var gitignore *os.File
-	if _, err := os.Stat(CONFIG); os.IsNotExist(err) {
-		// gitignore doesn't exist yet (create)
-		gitignore, err = os.Create(".gitignore")
-		if err != nil {
-			log.Println("failed to create .gitignore:", err)
-			return
-		}
-	} else {
-		// gitignore already exists
-		gitignore, err = os.OpenFile(".gitignore", os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Println("failed to open .gitignore:", err)
-			return
-		}
-	}
-	defer gitignore.Close()
-
-	// check if gitignore is already set
-	scanner := bufio.NewScanner(gitignore)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.Contains(line, CONFIG) {
-			// already set; no changes needed
-			fmt.Printf("Created config file %s.\nNOTE: do not commit this config file to your git repo! It may contain sensitive login information.\n", CONFIG)
-			fmt.Println("Your gitignore file should already have an exclusion for this file.")
-			return
-		}
-	}
-
-	// add config file to gitignore
-	_, err = gitignore.WriteString("\n\n# ActionScript checker utility\n" + CONFIG + "\n")
-	if err != nil {
-		log.Println("failed to write to gitignore:", err)
-		return
-	}
-
-	fmt.Printf("Created config file %s.\nNOTE: do not commit this config file to your git repo! It may contain sensitive login information.\n", CONFIG)
-	fmt.Println("Your gitignore file was updated to add an exclusion for this file.")
-}
-
-func loadConfig() configData {
-	data, err := os.ReadFile(CONFIG)
-	if err != nil {
-		fmt.Println("(No existing config found)")
-		return getUserConfig()
-	}
-
-	var config configData
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		log.Println("failed to unmarshal config json:", err)
-		return configData{}
-	}
-	fmt.Println("Existing config found")
-	fmt.Println("=====================")
-	fmt.Println("Username:", config.Username)
-	fmt.Println("Project ID:", config.P_ID)
-	if strings.ToLower(utils.GetInput("\n\nUse above config? [y/n]")) != "y" {
-		fmt.Println("ignoring existing config.")
-		return getUserConfig()
-	}
-
-	// get password, since it's not saved in the config file
-	config.Password = utils.GetInput("login password")
-
-	return config
-}
-
-func getUserConfig() configData {
-	fmt.Println("Creating new config.")
-	config := configData{}
-
-	fmt.Println("enter login credentials.")
-	username := utils.GetInput("email")
-	password := utils.GetInput("password")
-
-	fmt.Println("enter details of project to diff.")
-	p_id := utils.GetInput("project ID")
-
-	config.Username = username
-	config.Password = password
-	config.P_ID = p_id
-	config.unsavedChanges = true
-
-	return config
 }
