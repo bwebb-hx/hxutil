@@ -11,12 +11,13 @@ var diffCmd = &cobra.Command{
 	Short: "Diff two projects in Hexabase",
 	Long:  `Diff two projects in Hexabase.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 2 {
-			cmd.PrintErrln("2 project IDs required")
-			return
+		pid1, pid2 := "", ""
+		if len(args) > 0 {
+			pid1 = args[0]
 		}
-		pid1 := args[0]
-		pid2 := args[1]
+		if len(args) > 1 {
+			pid2 = args[1]
+		}
 		project.Diff(pid1, pid2)
 	},
 }

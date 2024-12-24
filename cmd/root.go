@@ -5,6 +5,7 @@ import (
 
 	actionCmd "github.com/bwebb-hx/hxutil/cmd/action"
 	apiCmd "github.com/bwebb-hx/hxutil/cmd/api"
+	configCmd "github.com/bwebb-hx/hxutil/cmd/config"
 	projectCmd "github.com/bwebb-hx/hxutil/cmd/project"
 	"github.com/spf13/cobra"
 )
@@ -32,6 +33,7 @@ func init() {
 	RootCmd.AddCommand(actionCmd.Cmd)
 	RootCmd.AddCommand(apiCmd.Cmd)
 	RootCmd.AddCommand(projectCmd.Cmd)
+	RootCmd.AddCommand(configCmd.Cmd)
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.

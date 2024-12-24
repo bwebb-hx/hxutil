@@ -31,6 +31,13 @@ var GetWorkspacesAPI = ApiEndpoint{
 	RequirePayload: false,
 }
 
+type GetWorkspacesResponse struct {
+	Workspaces []struct {
+		WorkspaceID   string `json:"workspace_id"`
+		WorkspaceName string `json:"workspace_name"`
+	} `json:"workspaces"`
+}
+
 // https://apidoc.hexabase.com/en/docs/v0/datastores/GetActions
 var GetActionsAPI = ApiEndpoint{
 	URI:            "/api/v0/datastores/%s/actions",

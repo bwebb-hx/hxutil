@@ -21,7 +21,7 @@ func configDir() string {
 	return path
 }
 
-func configFilePath() string {
+func ConfigFilePath() string {
 	return filepath.Join(configDir(), "config.json")
 }
 
@@ -42,7 +42,17 @@ type User struct {
 type Project struct {
 	P_ID          string `json:"p_id"`
 	DisplayID     string `json:"display_id"`
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
 	LastLoginUser string `json:"last_login_user"` // email used last for this project
+}
+
+func (p Project) String() string {
+	truncPid := p.P_ID
+	if len(p.P_ID) > 4 {
+		truncPid = p.P_ID[len(p.P_ID)-4:]
+	}
+	return fmt.Sprintf("%s %s", p.DisplayID, utils.ColorHint.Sprintf("[...%s] (%s)", truncPid, p.WorkspaceName))
 }
 
 type Config struct {
@@ -70,9 +80,28 @@ func (c *Config) AddProject() *Project {
 		utils.Fatal("failed to unmarshal project details response", err.Error())
 	}
 
+	// get workspace name
+	workspaceBytes, err := hx.GetApi(hx.GetWorkspacesAPI.URI, nil)
+	if err != nil {
+		utils.Fatal("failed to get workspaces", err.Error())
+	}
+	var workspaceResp hx.GetWorkspacesResponse
+	if err = json.Unmarshal(workspaceBytes, &workspaceResp); err != nil {
+		utils.Fatal("failed to unmarshal workspaces response", err.Error())
+	}
+	workspaceName := ""
+	for _, workspace := range workspaceResp.Workspaces {
+		if workspace.WorkspaceID == resp.WorkspaceID {
+			workspaceName = workspace.WorkspaceName
+			break
+		}
+	}
+
 	project := Project{
-		P_ID:      p_id,
-		DisplayID: resp.DisplayID,
+		P_ID:          p_id,
+		DisplayID:     resp.DisplayID,
+		WorkspaceID:   resp.WorkspaceID,
+		WorkspaceName: workspaceName,
 	}
 	c.Projects = append(c.Projects, project)
 	c.Save()
@@ -84,7 +113,7 @@ func (c *Config) SelectProject() *Project {
 	if len(c.Projects) > 0 {
 		fmt.Println("Existing projects:")
 		for i, project := range c.Projects {
-			fmt.Printf("%v) %s %s\n", i+1, project.DisplayID, utils.ColorHint.Sprintf("[%s]", project.P_ID))
+			fmt.Printf("%v) %s\n", i+1, project)
 		}
 		input := utils.GetInput("Choose project (or \"new\")")
 
@@ -217,7 +246,7 @@ func (c *Config) AddNewUser() *User {
 }
 
 func (c Config) Save() {
-	path := configFilePath()
+	path := ConfigFilePath()
 
 	bytes, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
@@ -235,7 +264,7 @@ func GetConfig() *Config {
 	if err := EnsureConfigDir(); err != nil {
 		utils.Fatal("error while ensuring config directory", err.Error())
 	}
-	path := configFilePath()
+	path := ConfigFilePath()
 
 	// if config doesn't exist yet, return an empty struct
 	_, err := os.Stat(path)

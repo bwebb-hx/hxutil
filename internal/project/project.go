@@ -4,12 +4,36 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/bwebb-hx/hxutil/internal/config"
 	hx "github.com/bwebb-hx/hxutil/internal/hexaClient"
 	"github.com/bwebb-hx/hxutil/internal/utils"
 )
 
 func Diff(p1, p2 string) {
-	hx.PromptLogin()
+	c := config.GetConfig()
+	if c == nil {
+		hx.PromptLogin()
+	} else {
+		c.SelectUserAndLogin(p1)
+	}
+
+	// if no projects provided, use config and prompt user
+	if p1 == "" {
+		utils.Hint("Select PID 1")
+		project1 := c.SelectProject()
+		if project1 == nil {
+			utils.Fatal("failed to select project", "project ID required for this utility")
+		}
+		p1 = project1.P_ID
+	}
+	if p2 == "" {
+		utils.Hint("Select PID 2")
+		project2 := c.SelectProject()
+		if project2 == nil {
+			utils.Fatal("failed to select project", "project ID required for this utility")
+		}
+		p2 = project2.P_ID
+	}
 
 	// diff project settings and env variables
 	diffProjectSettings(p1, p2)
@@ -40,6 +64,9 @@ func diffProjectSettings(p1, p2 string) {
 	if err = json.Unmarshal(p2Bytes, &p2SettingsResponse); err != nil {
 		utils.Fatal("failed to unmarshal json", err.Error())
 	}
+
+	utils.Hint(fmt.Sprintf("p1: %s [%s]", p1SettingsResponse.DisplayID, p1SettingsResponse.PID))
+	utils.Hint(fmt.Sprintf("p2: %s [%s]", p2SettingsResponse.DisplayID, p2SettingsResponse.PID))
 
 	// compare high level details (names, etc)
 	diffValues(p1SettingsResponse.Name.En, p2SettingsResponse.Name.En, "Name (En)")
