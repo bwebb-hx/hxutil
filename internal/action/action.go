@@ -19,7 +19,7 @@ const OUT = ".as_temp"
 
 var INTERACTIVE_MODE = true
 
-type action struct {
+type Action struct {
 	ID            string
 	DisplayID     string
 	Name          string
@@ -28,7 +28,7 @@ type action struct {
 	DatastoreName string
 }
 
-func getAllActionIDs(d_id string, datastores hexaclient.GetDatastoresResponse) []action {
+func getAllActionIDs(d_id string, datastoreName string) []Action {
 	resp, err := hexaclient.GetApi(fmt.Sprintf(hexaclient.GetActionsAPI.URI, d_id), nil)
 	if err != nil {
 		log.Println("failed to get action IDs:", err)
@@ -40,23 +40,41 @@ func getAllActionIDs(d_id string, datastores hexaclient.GetDatastoresResponse) [
 		return nil
 	}
 
-	actions := make([]action, 0)
+	actions := make([]Action, 0)
 	for _, actionDef := range getActionsResp {
-		action := action{
-			ID:        actionDef.ActionID,
-			DisplayID: actionDef.DisplayID,
-			Name:      actionDef.Name,
-			P_ID:      actionDef.P_ID,
-			D_ID:      actionDef.D_ID,
-		}
-		// find the name of the datastore
-		for _, ds := range datastores {
-			if ds.DatastoreID == action.D_ID {
-				action.DatastoreName = ds.Name
-				break
-			}
+		action := Action{
+			ID:            actionDef.ActionID,
+			DisplayID:     actionDef.DisplayID,
+			Name:          actionDef.Name,
+			P_ID:          actionDef.P_ID,
+			D_ID:          actionDef.D_ID,
+			DatastoreName: datastoreName,
 		}
 		actions = append(actions, action)
+	}
+
+	return actions
+}
+
+func GetProjectActions(p_id string) []Action {
+	// get all actionscripts IDs for all datastores in the project
+	getDatastoresBytes, err := hexaclient.GetApi(fmt.Sprintf(hexaclient.GetDatastoresAPI.URI, p_id), nil)
+	if err != nil {
+		log.Fatal("failed to get datastores for project:", err)
+	}
+	var datastores hexaclient.GetDatastoresResponse
+	if err := json.Unmarshal(getDatastoresBytes, &datastores); err != nil {
+		log.Fatal("failed to unmarshal datastores response:", err)
+	}
+	if len(datastores) == 0 {
+		utils.Warn("No datastores found in project", "P_ID: "+p_id)
+		fmt.Println(string(getDatastoresBytes))
+		return []Action{}
+	}
+
+	actions := make([]Action, 0)
+	for _, datastore := range datastores {
+		actions = append(actions, getAllActionIDs(datastore.DatastoreID, datastore.Name)...)
 	}
 
 	return actions
@@ -74,19 +92,7 @@ func DiffActionScripts(absPath string) {
 	c.SelectUserAndLogin(project.P_ID)
 
 	// get all actionscripts IDs for all datastores in the project
-	getDatastoresBytes, err := hexaclient.GetApi(fmt.Sprintf(hexaclient.GetDatastoresAPI.URI, project.P_ID), nil)
-	if err != nil {
-		log.Fatal("failed to get datastores for project:", err)
-	}
-	var datastores hexaclient.GetDatastoresResponse
-	if err := json.Unmarshal(getDatastoresBytes, &datastores); err != nil {
-		log.Fatal("failed to unmarshal datastores response:", err)
-	}
-
-	actions := make([]action, 0)
-	for _, datastore := range datastores {
-		actions = append(actions, getAllActionIDs(datastore.DatastoreID, datastores)...)
-	}
+	actions := GetProjectActions(project.P_ID)
 	if len(actions) == 0 {
 		log.Fatal("No actions found in the given project:", project.P_ID)
 	}
@@ -226,48 +232,60 @@ func diffFunctionActionScripts(absPath string, functions hexaclient.UN_GetFuncti
 	return diffFiles, searchErrs
 }
 
-func diffActionScript(action action, absPath string, scriptType string) (bool, diffSearchErrs) {
-	stats := diffSearchErrs{}
-	diffVal := false
-
-	if scriptType != "post" && scriptType != "pre" {
-		log.Println("unsupported script type:", scriptType)
-		return false, stats
-	}
-
-	// download actionscript
-	downloadResp, err := hexaclient.GetApi(fmt.Sprintf(hexaclient.DownloadActionScriptAPI.URI, action.ID), map[string]string{
+func DownloadActionScript(actionID string, scriptType string) (string, error) {
+	downloadResp, err := hexaclient.GetApi(fmt.Sprintf(hexaclient.DownloadActionScriptAPI.URI, actionID), map[string]string{
 		"script_type": scriptType,
 	})
 	if err != nil {
-		log.Println("failed to load actionscript:", err)
-		return false, stats
+		return "", err
 	}
 	actionscript := strings.TrimSpace(string(downloadResp))
 	if actionscript == "" {
-		log.Println("no actionscript found")
-		return false, stats
+		return "", nil
 	}
+
+	// check for errors
 	if actionscript[0] == '{' {
 		var jsonData map[string]interface{}
 		if err := json.Unmarshal(downloadResp, &jsonData); err != nil {
-			log.Println("tried to unmarshal actionscript json response but error occurred:", err)
-			stats.respUnexpected++
-			return false, stats
+			utils.Error("tried to unmarshal actionscript json response but error occurred", err.Error())
+			return "", errors.New("failed to unmarshal as json; unexpected response format")
 		}
 		errorCode, exists := jsonData["error_code"]
 		if exists {
 			if errorCode == "NOT_FOUND" {
-				return false, stats
+				return "", nil
 			}
 			if errorCode == "SYSTEM_ERROR" {
 				if jsonData["error"] == "empty script" {
-					return false, stats
+					return "", nil
 				}
 			}
 		}
-		log.Println("unexpected actionscript download response:", actionscript)
+		utils.Warn("unexpected actionscript download response:", actionscript)
+		return "", errors.New("unexpected actionscript download response")
+	}
+
+	return actionscript, nil
+}
+
+func diffActionScript(action Action, absPath string, scriptType string) (bool, diffSearchErrs) {
+	stats := diffSearchErrs{}
+	diffVal := false
+
+	if scriptType != "post" && scriptType != "pre" {
+		utils.Error("unsupported script type: "+scriptType, "")
+		return false, stats
+	}
+
+	// download actionscript
+	actionscript, err := DownloadActionScript(action.ID, scriptType)
+	if err != nil {
+		utils.Error("error occurred while fetching actionscript", err.Error())
 		stats.respUnexpected++
+		return false, stats
+	}
+	if actionscript == "" {
 		return false, stats
 	}
 
