@@ -53,7 +53,11 @@ func payloadToJson(data interface{}) []byte {
 
 // testApi tests the given API with the given payload.
 func testApi(apiDef ApiEndpoint, formatURI []any, queryParams map[string]string, payload interface{}, evalFunc func(data []byte) error, n int, wg *sync.WaitGroup) {
-	defer wg.Done()
+	defer func() {
+		if wg != nil {
+			wg.Done()
+		}
+	}()
 
 	if formatURI != nil {
 		apiDef.URI = fmt.Sprintf(apiDef.URI, formatURI...)
@@ -270,9 +274,25 @@ func RunStatusCheck() {
 		},
 	}
 
-	wg.Add(len(apis))
+	// NoAuth APIs
+	testApi(ForgotPasswordAPI, nil, nil, ForgotPasswordPayload{Email: TestAccUser, Host: baseURL}, func(data []byte) error {
+		var resp map[string]interface{}
+		err := json.Unmarshal(data, &resp)
+		if err != nil {
+			return err
+		}
+		val, exists := resp["valid_email"]
+		if !exists {
+			fmt.Println(resp)
+			return errors.New("valid_email key is missing")
+		}
+		if val != true {
+			return errors.New("email is expected to be valid")
+		}
+		return nil
+	}, n, nil)
 
-	// First, officially login to get the token
+	// Login to set the auth token for auth APIs
 	token := login()
 	if token == "" {
 		log.Fatal("failed to get token")
@@ -280,6 +300,7 @@ func RunStatusCheck() {
 	fmt.Println("(login succeeded)")
 
 	// run each api test concurrently
+	wg.Add(len(apis))
 	for _, fn := range apis {
 		go fn()
 	}

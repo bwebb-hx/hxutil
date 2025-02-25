@@ -11,9 +11,11 @@ import (
 )
 
 var (
-	method string
-	body   string
-	auth   bool
+	method   string
+	body     string
+	auth     bool
+	email    string
+	password string
 )
 
 var callCmd = &cobra.Command{
@@ -37,7 +39,12 @@ hxutil api call /api/v0/login -m POST -b '{ "email": "user@company.com", "passwo
 		uri := args[0]
 
 		if auth {
-			token := hexaclient.Login(hexaclient.TestAccUser, hexaclient.TestAccPass)
+			loginEmail, loginPassword := hexaclient.TestAccUser, hexaclient.TestAccPass
+			if email != "" && password != "" {
+				loginEmail = email
+				loginPassword = password
+			}
+			token := hexaclient.Login(loginEmail, loginPassword)
 			if token == "" {
 				log.Println("token from Login is empty")
 			}
@@ -72,6 +79,8 @@ func init() {
 	callCmd.Flags().StringVarP(&method, "method", "m", "GET", "method to use when calling the API.")
 	callCmd.Flags().StringVarP(&body, "body", "b", "", "body payload to pass when calling the API. only used for POST requests.")
 	callCmd.Flags().BoolVarP(&auth, "auth", "a", false, "if flag is set, config is used to get hexabase auth token to pass in authorization header.")
+	callCmd.Flags().StringVarP(&email, "email", "e", "", "email to use for logging in (only used when auth flag set). defaults to test user.")
+	callCmd.Flags().StringVarP(&password, "password", "p", "", "password to use for logging in (only used when auth flag set). defaults to test user.")
 
 	Cmd.AddCommand(callCmd)
 }

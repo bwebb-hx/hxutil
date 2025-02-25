@@ -23,6 +23,32 @@ var LoginAPI = ApiEndpoint{
 	RequirePayload: true,
 }
 
+var ForgotPasswordAPI = ApiEndpoint{
+	URI:            "/api/v0/users/password/forgot",
+	DisplayURI:     "/api/v0/users/password/forgot",
+	Method:         POST,
+	RequireToken:   false,
+	RequirePayload: true,
+}
+
+type ForgotPasswordPayload struct {
+	Email                string `json:"email"`
+	SenderAddress        string `json:"sender_address"`     // OPT
+	Host                 string `json:"host"`               // (Conditionally REQ)
+	RootPath             string `json:"root_path"`          // OPT
+	QueryParams          string `json:"query_params"`       // OPT ? Specify after
+	EmailTemplatesID     string `json:"email_templates_id"` // Conditionally REQ
+	ExclusiveWorkspaceID string `json:"exclusive_w_id"`     // OPT
+}
+
+var GetUserInfoAPI = ApiEndpoint{
+	URI:            "/api/v0/userinfo",
+	DisplayURI:     "/api/v0/userinfo",
+	Method:         GET,
+	RequireToken:   true,
+	RequirePayload: false,
+}
+
 var GetWorkspacesAPI = ApiEndpoint{
 	URI:            "/api/v0/workspaces",
 	DisplayURI:     "/api/v0/workspaces",
